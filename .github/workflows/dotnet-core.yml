@@ -9,7 +9,7 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v2
@@ -20,13 +20,12 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build --configuration Release --no-restore -runtime win-x64
+      run: dotnet build --configuration Release --no-restore
     - name: Publish
-      run: |
-        dotnet publish --configuration Release -o p2d-bundle-webdav-release-win64
+      run: dotnet publish --configuration Release -o "$GITHUB_WORKSPACE/pd2-bundle-webdav-release-win64"
 #    - name: Test
 #      run: dotnet test --no-restore --verbosity normal
     - uses: actions/upload-artifact@v2
       with:
         name: payday2-bundle-webdav
-        path: p2d-bundle-webdav-release-win64
+        path: pd2-bundle-webdav-release-win64
