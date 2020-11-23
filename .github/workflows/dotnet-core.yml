@@ -22,7 +22,7 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Publish
-      run: dotnet publish --configuration Release -o "$GITHUB_WORKSPACE/pd2-bundle-webdav-release-win64"
+      run: dotnet publish --configuration Release -o pd2-bundle-webdav-release-win64"
 #    - name: Test
 #      run: dotnet test --no-restore --verbosity normal
     - uses: actions/upload-artifact@v2
