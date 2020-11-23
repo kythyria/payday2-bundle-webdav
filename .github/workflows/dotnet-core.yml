@@ -22,7 +22,7 @@ jobs:
     - name: Build
       run: dotnet build --configuration Release --no-restore
     - name: Publish
-      run: dotnet publish
+      run: dotnet publish --configuration Release
 #    - name: Test
 #      run: dotnet test --no-restore --verbosity normal
     - uses: actions/upload-artifact@v2
