@@ -31,7 +31,7 @@ namespace PD2BundleDavServer
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
         {
-            var bundlepath = @"D:\steam\steamapps\common\PAYDAY 2\assets";
+            var bundlepath = Configuration["bundles"];
             logger.LogInformation("Bundle directory: {0}", bundlepath);
             Index = PathIndex.FromDirectory(bundlepath, new System.Threading.CancellationToken(), new Progress<GenericProgress>());
             logger.LogInformation("Done reading bundles");
