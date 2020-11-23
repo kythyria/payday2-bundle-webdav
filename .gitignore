@@ -360,3 +360,6 @@ MigrationBackup/
 FodyWeavers.xsd
 *.zip
 *.7z
+
+# These DLLs should be tracked
+!lib/**/*.dll
