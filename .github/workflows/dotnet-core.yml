@@ -26,4 +26,4 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: payday2-bundle-webdav
-        path: PD2-BundleDavServer/bin/Release/netcoreapp-3.1
+        path: payday2-bundle-webdav/PD2-BundleDavServer/bin/Release/netcoreapp-3.1
