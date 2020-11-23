@@ -25,7 +25,7 @@ jobs:
       run: |
         dotnet publish --configuration Release
         mkdir result
-        mv /home/runner/work/payday2-bundle-webdav/payday2-bundle-webdav/PD2-BundleDavServer/bin/Release/publish result/payday2-bundle-webdav
+        mv /home/runner/work/payday2-bundle-webdav/payday2-bundle-webdav/PD2-BundleDavServer/bin/Release/netcoreapp3.1/publish result/payday2-bundle-webdav
 #    - name: Test
 #      run: dotnet test --no-restore --verbosity normal
     - uses: actions/upload-artifact@v2
