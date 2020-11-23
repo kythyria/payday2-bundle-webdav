@@ -21,9 +21,11 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --configuration Release --no-restore
+    - name: Publish
+      run: dotnet publish
 #    - name: Test
 #      run: dotnet test --no-restore --verbosity normal
     - uses: actions/upload-artifact@v2
       with:
         name: payday2-bundle-webdav
-        path: payday2-bundle-webdav/PD2-BundleDavServer/bin/Release/netcoreapp-3.1
+        path: /home/runner/work/payday2-bundle-webdav/PD2-BundleDavServer/bin/Release/netcoreapp-3.1/publish
