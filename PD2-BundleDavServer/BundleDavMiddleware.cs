@@ -179,6 +179,7 @@ namespace PD2BundleDavServer
             }
 
             ctx.Response.StatusCode = StatusCodes.Status207MultiStatus;
+            ctx.Response.ContentType = "application/xml; encoding=UTF-8";
 
             var itemsToList = Enumerable.Empty<PathIndexItem>();
             if(depth != Depth.OneNoRoot && depth != Depth.InfinityNoRoot)
@@ -192,10 +193,10 @@ namespace PD2BundleDavServer
             }
             else if(depth == Depth.Infinity || depth == Depth.InfinityNoRoot)
             {
-                itemsToList = itemsToList.Concat(index.DirectChildrenListing(path));
+                itemsToList = itemsToList.Concat(index.AllChildrenListing(path));
             }
 
-            var xw = XmlWriter.Create(ctx.Response.Body, new XmlWriterSettings() { Async = true });
+            var xw = XmlWriter.Create(ctx.Response.Body, new XmlWriterSettings() { Async = true, Encoding = new System.Text.UTF8Encoding(false) });
             await xw.WriteStartElementAsync("", "multistatus", "DAV:");
 
             foreach(var curr in itemsToList)
