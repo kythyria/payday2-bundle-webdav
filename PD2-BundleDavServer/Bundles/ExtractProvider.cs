@@ -19,6 +19,8 @@ namespace PD2BundleDavServer.Bundles
 
         public bool SupportsDescendantDepth => true;
 
+        public IEnumerable<XName> AllProperties { get; } = Enumerable.Empty<XName>();
+
         public Task<IAsyncEnumerable<IStat>> EnumerateProperties(string path, OperationDepth depth, IEnumerable<XName> requestedProps)
         {
             if (path == "") { path = "/"; }
@@ -51,20 +53,20 @@ namespace PD2BundleDavServer.Bundles
             foreach(var item in itemsToList)
             {
                 var isCollection = item is CollectionIndexItem;
-                var props = new Dictionary<XName, (PropResultCode, object)>();
+                var props = new Dictionary<XName, (ResultCode, object)>();
                 foreach(var propname in requestedProps)
                 {
                     if(propname == Name.PropName)
                     {
-                        props.Add(propname, (PropResultCode.Found, Enumerable.Repeat(Name.InPackages, 1)));
+                        props.Add(propname, (ResultCode.Found, Enumerable.Repeat(Name.InPackages, 1)));
                     }
                     else if(propname == Name.InPackages)
                     {
-                        props.Add(propname, (PropResultCode.Found, GetPackageFragment(item)));
+                        props.Add(propname, (ResultCode.Found, GetPackageFragment(item)));
                     }
-                    else if(propname == Name.GetContentType)
+                    else if(propname == Name.GetContentType && !isCollection)
                     {
-                        props.Add(propname, (PropResultCode.Found, "application/octet-stream"))
+                        props.Add(propname, (ResultCode.Found, "application/octet-stream"));
                     }
                 }
                 yield return new SimpleStat(originalPath, isCollection, item.ContentLength, item.LastModified, props);
@@ -84,24 +86,46 @@ namespace PD2BundleDavServer.Bundles
             }
         }
 
-        public IContent GetContent(string path)
+        public Task<IContent> GetContent(string path)
         {
+            if (path == "") { path = "/"; }
+            else if (path != "/") { path = path.TrimEnd('/'); }
+
+            if (!Index.TryGetItem(path, out var rootItem))
+            {
+                return Task.FromResult(GenericContent.NotFound as IContent);
+            }
+
+            if(rootItem is CollectionIndexItem)
+            {
+                return Task.FromResult<IContent>(new GenericContent(ResultCode.Found, null, rootItem.LastModified, true));
+            }
+            else if(rootItem is FileIndexItem item)
+            {
+                return Task.FromResult<IContent>(new ExtractFileContent(item));
+            }
+
             throw new NotImplementedException();
         }
 
-        public IContent GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType)
-        {
-            throw new NotImplementedException();
-        }
+        public Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType) => GetContent(path);
+        public Task<IContent> GetContentIfModified(string path, DateTime when) => GetContent(path);
+        public Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTime when) => GetContentIfModified(path, when);
+    }
 
-        public IContent GetContentIfModified(string path, DateTime when)
-        {
-            throw new NotImplementedException();
-        }
+    class ExtractFileContent : IContent
+    {
+        public ResultCode Status => ResultCode.Found;
+        public MediaTypeHeaderValue ContentType => new MediaTypeHeaderValue("application/octet-stream");
+        public DateTime LastModified => item.LastModified;
+        public bool UseCollectionFallback => false;
 
-        public IContent GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTime when)
+        public Task<System.IO.Stream> GetBodyStream() => item.GetContentsStream();
+
+        private FileIndexItem item;
+        public ExtractFileContent(FileIndexItem fii)
         {
-            throw new NotImplementedException();
+            item = fii;
         }
     }
 }

@@ -48,11 +48,12 @@ namespace PD2BundleDavServer.WebDAV
         InfinityNoRoot = IncludeChildren | IncludeDescendants
     }
 
-    public enum PropResultCode
+    public enum ResultCode
     {
         Found = 200,
         NotFound = 404,
-        AccessDenied = 403
+        AccessDenied = 403,
+        NotModified = 304
     }
 
     public interface IStat
@@ -65,15 +66,24 @@ namespace PD2BundleDavServer.WebDAV
         /// <summary>
         /// Properties of the item that are not already members of this interface.
         /// </summary>
-        IReadOnlyDictionary<XName, (PropResultCode status, object value)> Properties { get; }
+        IReadOnlyDictionary<XName, (ResultCode status, object value)> Properties { get; }
     }
 
+    /// <summary>
+    /// Represents a response to a request for an item's content.
+    /// </summary>
+    /// <remarks>
     public interface IContent
     {
-        Stream GetBodyStream();
+        ResultCode Status { get; }
+        Task<Stream> GetBodyStream();
         MediaTypeHeaderValue ContentType { get; }
         DateTime LastModified { get; }
 
+        /// <summary>
+        /// If true, the server should perform its default behaviour for collections.
+        /// </summary>
+        bool UseCollectionFallback { get; }
     }
 
     public interface IReadableFilesystem
@@ -97,15 +107,15 @@ namespace PD2BundleDavServer.WebDAV
         /// <param name="requestedProps"></param>
         /// <returns>Null if the path was not found, otherwise the specified properties.</returns>
         Task<IAsyncEnumerable<IStat>> EnumerateProperties(string path, OperationDepth depth, IEnumerable<XName> requestedProps);
-        IContent GetContent(string path);
-        IContent GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType);
-        IContent GetContentIfModified(string path, DateTime when);
-        IContent GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTime when);
+        Task<IContent> GetContent(string path);
+        Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType);
+        Task<IContent> GetContentIfModified(string path, DateTime when);
+        Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTime when);
     }
 
     public class SimpleStat : IStat
     {
-        public SimpleStat(string path, bool isCollection, long? contentLength, DateTime lastModified, IReadOnlyDictionary<XName, (PropResultCode status, object value)> properties)
+        public SimpleStat(string path, bool isCollection, long? contentLength, DateTime lastModified, IReadOnlyDictionary<XName, (ResultCode status, object value)> properties)
         {
             Path = path;
             IsCollection = isCollection;
@@ -118,6 +128,29 @@ namespace PD2BundleDavServer.WebDAV
         public long? ContentLength { get; }
         public DateTime LastModified { get; }
 
-        public IReadOnlyDictionary<XName, (PropResultCode status, object value)> Properties { get; }
+        public IReadOnlyDictionary<XName, (ResultCode status, object value)> Properties { get; }
+    }
+
+    public class GenericContent : IContent
+    {
+        public ResultCode Status { get; }
+
+        public MediaTypeHeaderValue ContentType { get; }
+
+        public DateTime LastModified { get; }
+
+        public bool UseCollectionFallback { get; }
+
+        public Task<Stream> GetBodyStream() => Task.FromResult(Stream.Null);
+
+        public GenericContent(ResultCode rc, MediaTypeHeaderValue ct, DateTime lm, bool ucf)
+        {
+            Status = rc;
+            ContentType = ct;
+            LastModified = lm;
+            UseCollectionFallback = ucf;
+        }
+
+        public static GenericContent NotFound { get; } = new(ResultCode.NotFound, null, DateTime.MinValue, false);
     }
 }
