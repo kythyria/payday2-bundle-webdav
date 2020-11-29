@@ -109,15 +109,15 @@ namespace PD2BundleDavServer.Bundles
         }
 
         public Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType) => GetContent(path);
-        public Task<IContent> GetContentIfModified(string path, DateTime when) => GetContent(path);
-        public Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTime when) => GetContentIfModified(path, when);
+        public Task<IContent> GetContentIfModified(string path, DateTimeOffset when) => GetContent(path);
+        public Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTimeOffset when) => GetContentIfModified(path, when);
     }
 
     class ExtractFileContent : IContent
     {
         public ResultCode Status => ResultCode.Found;
         public MediaTypeHeaderValue ContentType => new MediaTypeHeaderValue("application/octet-stream");
-        public DateTime LastModified => item.LastModified;
+        public DateTimeOffset LastModified => item.LastModified;
         public bool UseCollectionFallback => false;
 
         public Task<System.IO.Stream> GetBodyStream() => item.GetContentsStream();

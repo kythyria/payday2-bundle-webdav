@@ -61,7 +61,7 @@ namespace PD2BundleDavServer.WebDAV
         string Path { get; }
         bool IsCollection { get; }
         long? ContentLength { get; }
-        DateTime LastModified { get; }
+        DateTimeOffset LastModified { get; }
 
         /// <summary>
         /// Properties of the item that are not already members of this interface.
@@ -78,7 +78,7 @@ namespace PD2BundleDavServer.WebDAV
         ResultCode Status { get; }
         Task<Stream> GetBodyStream();
         MediaTypeHeaderValue ContentType { get; }
-        DateTime LastModified { get; }
+        DateTimeOffset LastModified { get; }
 
         /// <summary>
         /// If true, the server should perform its default behaviour for collections.
@@ -109,13 +109,13 @@ namespace PD2BundleDavServer.WebDAV
         Task<IAsyncEnumerable<IStat>> EnumerateProperties(string path, OperationDepth depth, IEnumerable<XName> requestedProps);
         Task<IContent> GetContent(string path);
         Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType);
-        Task<IContent> GetContentIfModified(string path, DateTime when);
-        Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTime when);
+        Task<IContent> GetContentIfModified(string path, DateTimeOffset when);
+        Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTimeOffset when);
     }
 
     public class SimpleStat : IStat
     {
-        public SimpleStat(string path, bool isCollection, long? contentLength, DateTime lastModified, IReadOnlyDictionary<XName, (ResultCode status, object value)> properties)
+        public SimpleStat(string path, bool isCollection, long? contentLength, DateTimeOffset lastModified, IReadOnlyDictionary<XName, (ResultCode status, object value)> properties)
         {
             Path = path;
             IsCollection = isCollection;
@@ -126,7 +126,7 @@ namespace PD2BundleDavServer.WebDAV
         public string Path { get; }
         public bool IsCollection { get; }
         public long? ContentLength { get; }
-        public DateTime LastModified { get; }
+        public DateTimeOffset LastModified { get; }
 
         public IReadOnlyDictionary<XName, (ResultCode status, object value)> Properties { get; }
     }
@@ -137,13 +137,13 @@ namespace PD2BundleDavServer.WebDAV
 
         public MediaTypeHeaderValue ContentType { get; }
 
-        public DateTime LastModified { get; }
+        public DateTimeOffset LastModified { get; }
 
         public bool UseCollectionFallback { get; }
 
         public Task<Stream> GetBodyStream() => Task.FromResult(Stream.Null);
 
-        public GenericContent(ResultCode rc, MediaTypeHeaderValue ct, DateTime lm, bool ucf)
+        public GenericContent(ResultCode rc, MediaTypeHeaderValue ct, DateTimeOffset lm, bool ucf)
         {
             Status = rc;
             ContentType = ct;

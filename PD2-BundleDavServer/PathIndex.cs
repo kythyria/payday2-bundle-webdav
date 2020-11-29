@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -34,7 +35,7 @@ namespace PD2BundleDavServer
             }
         }
 
-        public bool TryGetItem(string path, out PathIndexItem item) => itemsByPath.TryGetValue(path, out item);
+        public bool TryGetItem(string path, [MaybeNullWhen(false)] out PathIndexItem item) => itemsByPath.TryGetValue(path, out item);
 
         public IEnumerable<PathIndexItem> AllChildrenListing(string path)
         {
@@ -60,11 +61,14 @@ namespace PD2BundleDavServer
             => Path.Join(bundleDirectory, pfe.Parent.BundleName + ".bundle");
 
         private PathIndex(string bundleDir) {
+            pdb = new PackageDatabase();
             bundleDirectory = bundleDir;
             itemsByPath = new Dictionary<string, PathIndexItem>();
         }
         public static PathIndex FromDirectory(string bundleDir, CancellationToken ct, IProgress<GenericProgress> progress)
-            => new PathIndex(bundleDir).LoadFromDirectory(ct, progress);
+        {
+            return new PathIndex(bundleDir).LoadFromDirectory(ct, progress);
+        }
 
         private PathIndex LoadFromDirectory(CancellationToken ct, IProgress<GenericProgress> progress)
         {
@@ -72,12 +76,11 @@ namespace PD2BundleDavServer
 
             progress.Report(GenericProgress.Indefinite("Reading BLB file"));
 
-            pdb =  new PackageDatabase();
             pdb.Load(blbpath);
 
             var pdbdate = new FileInfo(blbpath).LastWriteTimeUtc;
 
-            if (ct.IsCancellationRequested) return null;
+            if (ct.IsCancellationRequested) return this;
 
             var fileentries = new Dictionary<uint, (DatabaseEntry, string, List<PackageFileEntry>)>(pdb.Entries.Count);
             foreach(var dbe in pdb.GetDatabaseEntries())
@@ -87,7 +90,7 @@ namespace PD2BundleDavServer
                 fileentries.Add(dbe.ID, (dbe, path, new List<PackageFileEntry>()));
             }
 
-            if (ct.IsCancellationRequested) return null;
+            if (ct.IsCancellationRequested) return this;
             progress.Report(GenericProgress.Indefinite("Reading package headers"));
 
             var headerNames = Directory.EnumerateFiles(bundleDirectory, "*.bundle").Where(i => !i.EndsWith("_h.bundle")).ToList();
@@ -95,7 +98,7 @@ namespace PD2BundleDavServer
 
             for (var i = 0; i < headerNames.Count; i++) {
                 progress.Report(new GenericProgress("Reading package headers", i, headerNames.Count));
-                if (ct.IsCancellationRequested) return null;
+                if (ct.IsCancellationRequested) return this;
 
                 var bundleId = Path.GetFileNameWithoutExtension(headerNames[i]);
 
@@ -118,7 +121,7 @@ namespace PD2BundleDavServer
                 }
             }
 
-            if (ct.IsCancellationRequested) return null;
+            if (ct.IsCancellationRequested) return this;
             progress.Report(GenericProgress.Indefinite("Assembling directory tree"));
 
             itemsByPath["/"] = new CollectionIndexItem(this, "/", DateTime.MinValue);

@@ -20,7 +20,6 @@ namespace PD2BundleDavServer
         }
 
         public IConfiguration Configuration { get; }
-        public PathIndex Index { get; private set; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -33,7 +32,7 @@ namespace PD2BundleDavServer
         {
             var bundlepath = Configuration["bundles"];
             logger.LogInformation("Bundle directory: {0}", bundlepath);
-            Index = PathIndex.FromDirectory(bundlepath, new System.Threading.CancellationToken(), new Progress<GenericProgress>());
+            var Index = PathIndex.FromDirectory(bundlepath, new System.Threading.CancellationToken(), new Progress<GenericProgress>());
             logger.LogInformation("Done reading bundles");
 
             if (env.IsDevelopment())

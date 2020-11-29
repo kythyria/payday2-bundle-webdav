@@ -5,6 +5,7 @@
     <RootNamespace>PD2BundleDavServer</RootNamespace>
     <UserSecretsId>27cce094-b65b-4ec1-b466-cd5fd698a2fd</UserSecretsId>
     <LangVersion>preview</LangVersion>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

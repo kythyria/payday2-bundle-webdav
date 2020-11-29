@@ -153,7 +153,7 @@ namespace PD2BundleDavServer
                 return;
             }
 
-            HashSet<XName> wantedProps = DEFAULT_PROPS;
+            HashSet<XName>? wantedProps = DEFAULT_PROPS;
             if(ctx.Request.ContentLength > 0)
             {
                 if(ctx.Request.ContentType.Split(';')[0] != "application/xml")
@@ -294,7 +294,7 @@ namespace PD2BundleDavServer
             Error
         }
 
-        static async Task<HashSet<XName>> ParsePropfindRequestBody(Stream input)
+        static async Task<HashSet<XName>?> ParsePropfindRequestBody(Stream input)
         {
             var result = new HashSet<XName>();
             XElement root;

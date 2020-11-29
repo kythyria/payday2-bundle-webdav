@@ -19,6 +19,7 @@
     },
     "PD2_BundleDavServer": {
       "commandName": "Project",
+      "commandLineArgs": "--bundles=\"D:\\steam\\steamapps\\common\\PAYDAY 2\\assets\"",
       "launchUrl": "weatherforecast",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
