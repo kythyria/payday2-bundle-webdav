@@ -52,8 +52,7 @@ namespace PD2BundleDavServer.WebDAV
     {
         Found = 200,
         NotFound = 404,
-        AccessDenied = 403,
-        NotModified = 304
+        AccessDenied = 403
     }
 
     public interface IStat
@@ -66,7 +65,10 @@ namespace PD2BundleDavServer.WebDAV
         /// <summary>
         /// Properties of the item that are not already members of this interface.
         /// </summary>
-        IReadOnlyDictionary<XName, (ResultCode status, object value)> Properties { get; }
+        /// <remarks>
+        /// The values must be suitable for adding as <see cref="XElement"/>'s children.
+        /// </remarks>
+        IReadOnlyDictionary<XName, (ResultCode status, object? value)> Properties { get; }
     }
 
     /// <summary>
@@ -77,7 +79,7 @@ namespace PD2BundleDavServer.WebDAV
     {
         ResultCode Status { get; }
         Task<Stream> GetBodyStream();
-        MediaTypeHeaderValue ContentType { get; }
+        MediaTypeHeaderValue? ContentType { get; }
         DateTimeOffset LastModified { get; }
 
         /// <summary>
@@ -94,28 +96,17 @@ namespace PD2BundleDavServer.WebDAV
         bool SupportsDescendantDepth { get; }
 
         /// <summary>
-        /// Additional properties that should be implied by allprop requests.
-        /// </summary>
-        IEnumerable<XName> AllProperties { get; }
-
-        /// <summary>
         /// Get properties for a given path and depth. Also services the &lt;D:propnames/&gt; request,
         /// by using that as a property name.
         /// </summary>
-        /// <param name="path"></param>
-        /// <param name="depth"></param>
-        /// <param name="requestedProps"></param>
         /// <returns>Null if the path was not found, otherwise the specified properties.</returns>
-        Task<IAsyncEnumerable<IStat>> EnumerateProperties(string path, OperationDepth depth, IEnumerable<XName> requestedProps);
-        Task<IContent> GetContent(string path);
-        Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType);
-        Task<IContent> GetContentIfModified(string path, DateTimeOffset when);
-        Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTimeOffset when);
+        Task<IAsyncEnumerable<IStat>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps);
+        Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue>? acceptContentType);
     }
 
     public class SimpleStat : IStat
     {
-        public SimpleStat(string path, bool isCollection, long? contentLength, DateTimeOffset lastModified, IReadOnlyDictionary<XName, (ResultCode status, object value)> properties)
+        public SimpleStat(string path, bool isCollection, long? contentLength, DateTimeOffset lastModified, IReadOnlyDictionary<XName, (ResultCode status, object? value)> properties)
         {
             Path = path;
             IsCollection = isCollection;
@@ -128,14 +119,14 @@ namespace PD2BundleDavServer.WebDAV
         public long? ContentLength { get; }
         public DateTimeOffset LastModified { get; }
 
-        public IReadOnlyDictionary<XName, (ResultCode status, object value)> Properties { get; }
+        public IReadOnlyDictionary<XName, (ResultCode status, object? value)> Properties { get; }
     }
 
     public class GenericContent : IContent
     {
         public ResultCode Status { get; }
 
-        public MediaTypeHeaderValue ContentType { get; }
+        public MediaTypeHeaderValue? ContentType { get; }
 
         public DateTimeOffset LastModified { get; }
 
@@ -143,7 +134,7 @@ namespace PD2BundleDavServer.WebDAV
 
         public Task<Stream> GetBodyStream() => Task.FromResult(Stream.Null);
 
-        public GenericContent(ResultCode rc, MediaTypeHeaderValue ct, DateTimeOffset lm, bool ucf)
+        public GenericContent(ResultCode rc, MediaTypeHeaderValue? ct, DateTimeOffset lm, bool ucf)
         {
             Status = rc;
             ContentType = ct;

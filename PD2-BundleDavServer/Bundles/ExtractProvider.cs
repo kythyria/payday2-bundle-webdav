@@ -10,6 +10,24 @@ namespace PD2BundleDavServer.Bundles
 {
     public class ExtractProvider : IReadableFilesystem
     {
+        private static XName[] SupportedCollectionProps = new XName[]
+        {
+            Name.GetLastModified,
+            Name.InPackages,
+            Name.DisplayName,
+            Name.ResourceType
+        };
+
+        private static XName[] SupportedFileProps = new XName[]
+        {
+            Name.GetLastModified,
+            Name.InPackages,
+            Name.DisplayName,
+            Name.ResourceType,
+            Name.GetContentLength,
+            Name.GetContentType
+        };
+
         private PathIndex Index { get; }
 
         public ExtractProvider(PathIndex index)
@@ -19,22 +37,20 @@ namespace PD2BundleDavServer.Bundles
 
         public bool SupportsDescendantDepth => true;
 
-        public IEnumerable<XName> AllProperties { get; } = Enumerable.Empty<XName>();
-
-        public Task<IAsyncEnumerable<IStat>> EnumerateProperties(string path, OperationDepth depth, IEnumerable<XName> requestedProps)
+        public Task<IAsyncEnumerable<IStat>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps)
         {
             if (path == "") { path = "/"; }
             else if (path != "/") { path = path.TrimEnd('/'); }
 
             if (!Index.TryGetItem(path, out var rootItem))
             {
-                return null;
+                return Task.FromResult<IAsyncEnumerable<IStat>?>(null);
             }
-            else return Task.FromResult(EnumerateProperties(path, rootItem, depth, requestedProps));
+            else return Task.FromResult<IAsyncEnumerable<IStat>?>(EnumerateProperties(path, rootItem, depth, getAllProps, additionalProps));
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        async IAsyncEnumerable<IStat> EnumerateProperties(string originalPath, PathIndexItem rootItem, OperationDepth depth, IEnumerable<XName> requestedProps) {
+        async IAsyncEnumerable<IStat> EnumerateProperties(string originalPath, PathIndexItem rootItem, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps) {
             var itemsToList = Enumerable.Empty<PathIndexItem>();
             if(depth.HasFlag(OperationDepth.IncludeSelf))
             {
@@ -50,15 +66,23 @@ namespace PD2BundleDavServer.Bundles
                 itemsToList = itemsToList.Concat(Index.AllChildrenListing(rootItem.Path));
             }
 
+            if(getAllProps)
+            {
+                additionalProps = Enumerable.Concat(
+                    new XName[] { Name.GetContentType },
+                    additionalProps
+                );
+            }
+
             foreach(var item in itemsToList)
             {
                 var isCollection = item is CollectionIndexItem;
-                var props = new Dictionary<XName, (ResultCode, object)>();
-                foreach(var propname in requestedProps)
+                var props = new Dictionary<XName, (ResultCode, object?)>();
+                foreach(var propname in additionalProps)
                 {
                     if(propname == Name.PropName)
                     {
-                        props.Add(propname, (ResultCode.Found, Enumerable.Repeat(Name.InPackages, 1)));
+                        props.Add(propname, (ResultCode.Found, isCollection ? SupportedCollectionProps : SupportedFileProps));
                     }
                     else if(propname == Name.InPackages)
                     {
@@ -67,6 +91,14 @@ namespace PD2BundleDavServer.Bundles
                     else if(propname == Name.GetContentType && !isCollection)
                     {
                         props.Add(propname, (ResultCode.Found, "application/octet-stream"));
+                    }
+                    else if(propname == Name.DisplayName)
+                    {
+                        props.Add(propname, (ResultCode.Found, item.PathSegment));
+                    }
+                    else
+                    {
+                        props.Add(propname, (ResultCode.NotFound, null));
                     }
                 }
                 yield return new SimpleStat(originalPath, isCollection, item.ContentLength, item.LastModified, props);
@@ -86,7 +118,7 @@ namespace PD2BundleDavServer.Bundles
             }
         }
 
-        public Task<IContent> GetContent(string path)
+        public Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue>? acceptContentType)
         {
             if (path == "") { path = "/"; }
             else if (path != "/") { path = path.TrimEnd('/'); }
@@ -107,10 +139,6 @@ namespace PD2BundleDavServer.Bundles
 
             throw new NotImplementedException();
         }
-
-        public Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue> acceptContentType) => GetContent(path);
-        public Task<IContent> GetContentIfModified(string path, DateTimeOffset when) => GetContent(path);
-        public Task<IContent> GetContentIfModified(string path, IList<MediaTypeHeaderValue> acceptContentType, DateTimeOffset when) => GetContentIfModified(path, when);
     }
 
     class ExtractFileContent : IContent

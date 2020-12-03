@@ -34,6 +34,7 @@ namespace PD2BundleDavServer
             logger.LogInformation("Bundle directory: {0}", bundlepath);
             var Index = PathIndex.FromDirectory(bundlepath, new System.Threading.CancellationToken(), new Progress<GenericProgress>());
             logger.LogInformation("Done reading bundles");
+            var extractProvider = new Bundles.ExtractProvider(Index);
 
             if (env.IsDevelopment())
             {
@@ -44,7 +45,9 @@ namespace PD2BundleDavServer
 
             app.UseAuthorization();
             app.Map("/davstub", iab => { iab.UseDavStubMiddleware(); });
-            app.Map("/extract", iab => { iab.UseBundleDavMiddleware(Index); });
+            app.Map("/extract1", iab => { iab.UseBundleDavMiddleware(Index); });
+            app.Map("/extract2", iab => { iab.UseDavMiddleware(extractProvider); });
+            extractProvider.ToString();
 
             app.UseEndpoints(endpoints =>
             {
