@@ -100,7 +100,7 @@ namespace PD2BundleDavServer.WebDAV
         /// by using that as a property name.
         /// </summary>
         /// <returns>Null if the path was not found, otherwise the specified properties.</returns>
-        Task<IAsyncEnumerable<IStat>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps);
+        Task<IAsyncEnumerable<PropfindResult>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps);
         Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue>? acceptContentType);
     }
 

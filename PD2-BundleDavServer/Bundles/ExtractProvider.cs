@@ -28,6 +28,14 @@ namespace PD2BundleDavServer.Bundles
             Name.GetContentType
         };
 
+        private static XName[] AllPropProps = new XName[]
+        {
+            Name.GetContentType,
+            Name.GetLastModified,
+            Name.GetContentLength,
+            Name.ResourceType
+        };
+
         private PathIndex Index { get; }
 
         public ExtractProvider(PathIndex index)
@@ -37,20 +45,20 @@ namespace PD2BundleDavServer.Bundles
 
         public bool SupportsDescendantDepth => true;
 
-        public Task<IAsyncEnumerable<IStat>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps)
+        public Task<IAsyncEnumerable<PropfindResult>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps)
         {
             if (path == "") { path = "/"; }
             else if (path != "/") { path = path.TrimEnd('/'); }
 
             if (!Index.TryGetItem(path, out var rootItem))
             {
-                return Task.FromResult<IAsyncEnumerable<IStat>?>(null);
+                return Task.FromResult<IAsyncEnumerable<PropfindResult>?>(null);
             }
-            else return Task.FromResult<IAsyncEnumerable<IStat>?>(EnumerateProperties(path, rootItem, depth, getAllProps, additionalProps));
+            else return Task.FromResult<IAsyncEnumerable<PropfindResult>?>(EnumerateProperties(path, rootItem, depth, getAllProps, additionalProps));
         }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        async IAsyncEnumerable<IStat> EnumerateProperties(string originalPath, PathIndexItem rootItem, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps) {
+        async IAsyncEnumerable<PropfindResult> EnumerateProperties(string originalPath, PathIndexItem rootItem, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps) {
             var itemsToList = Enumerable.Empty<PathIndexItem>();
             if(depth.HasFlag(OperationDepth.IncludeSelf))
             {
@@ -69,7 +77,7 @@ namespace PD2BundleDavServer.Bundles
             if(getAllProps)
             {
                 additionalProps = Enumerable.Concat(
-                    new XName[] { Name.GetContentType },
+                    AllPropProps,
                     additionalProps
                 );
             }
@@ -78,30 +86,44 @@ namespace PD2BundleDavServer.Bundles
             {
                 var isCollection = item is CollectionIndexItem;
                 var props = new Dictionary<XName, (ResultCode, object?)>();
+                var statResult = new PropfindResult(item.Path, isCollection);
+
                 foreach(var propname in additionalProps)
                 {
                     if(propname == Name.PropName)
                     {
                         props.Add(propname, (ResultCode.Found, isCollection ? SupportedCollectionProps : SupportedFileProps));
+                        statResult.Add(propname, isCollection ? SupportedCollectionProps : SupportedFileProps);
                     }
                     else if(propname == Name.InPackages)
                     {
                         props.Add(propname, (ResultCode.Found, GetPackageFragment(item)));
+                        statResult.Add(propname, GetPackageFragment(item));
                     }
                     else if(propname == Name.GetContentType && !isCollection)
                     {
                         props.Add(propname, (ResultCode.Found, "application/octet-stream"));
+                        statResult.Add(propname, "application/octet-stream");
                     }
                     else if(propname == Name.DisplayName)
                     {
                         props.Add(propname, (ResultCode.Found, item.PathSegment));
+                        statResult.Add(propname, item.PathSegment);
                     }
-                    else
+                    else if(propname == Name.GetLastModified)
                     {
-                        props.Add(propname, (ResultCode.NotFound, null));
+                        statResult.Add(propname, item.LastModified.ToString("R"));
+                    }
+                    else if(propname == Name.GetContentLength && !isCollection)
+                    {
+                        statResult.Add(propname, item.ContentLength);
+                    }
+                    else if(propname == Name.ResourceType && isCollection)
+                    {
+                        statResult.Add(propname, Enumerable.Repeat(new XElement(Name.Collection), 1));
                     }
                 }
-                yield return new SimpleStat(originalPath, isCollection, item.ContentLength, item.LastModified, props);
+                yield return statResult;
             }
         }
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously

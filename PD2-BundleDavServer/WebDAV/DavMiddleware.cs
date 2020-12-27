@@ -104,7 +104,7 @@ namespace PD2BundleDavServer.WebDAV
                 var children = await backing.EnumerateProperties(ctx.Request.Path, OperationDepth.IncludeChildren, false, ListingProps);
                 if(children == null)
                 {
-                    children = AsyncEnumerable.Empty<IStat>();
+                    children = AsyncEnumerable.Empty<PropfindResult>();
                 }
                 await foreach (var child in children)
                 {
@@ -112,9 +112,9 @@ namespace PD2BundleDavServer.WebDAV
                     var ub = new UriBuilder(ctx.Request.GetEncodedUrl());
                     ub.Path = childpath;
 
-                    var date = child.LastModified.ToString("yyyy-MM-dd HH:mm");
-                    var size = child.ContentLength;
-                    var name = child.Properties[Name.DisplayName] + (child.IsCollection ? "/" : "");
+                    var date = child[Name.GetLastModified];
+                    var size = child[Name.GetContentLength];
+                    var name = child[Name.DisplayName] + (child.IsCollection ? "/" : "");
 
                     var row = $"<tr><td><a href=\"{childpath}\">{name}</a></td><td>{size}</td><td>{date}</td></tr>\n";
                     await ctx.Response.WriteAsync(row);
@@ -196,13 +196,97 @@ namespace PD2BundleDavServer.WebDAV
                 var ub = new UriBuilder(ctx.Request.GetEncodedUrl());
                 ub.Path = itempath;
 
+                await xw.WriteElementStringAsync("", "href", "DAV:", ub.ToString());
 
+                if (BodyParseResult == PfResult.PropNames)
+                {
+                    await xw.WriteStartElementAsync("", "propstat", "DAV:");
+                    await xw.WriteStartElementAsync("", "prop", "DAV:");
+
+                    var namelist = curr[Name.PropName] as IEnumerable<XName>;
+                    if(namelist == null)
+                    {
+                        throw new NotImplementedException("BUG: Backend does not respond to propname requests.");
+                    } 
+
+                    foreach (var pn in namelist)
+                    {
+                        await xw.WriteStartElementAsync("", pn.LocalName, pn.NamespaceName);
+                        await xw.WriteEndElementAsync();
+                    }
+
+                    await xw.WriteEndElementAsync();
+                    await xw.WriteElementStringAsync("", "status", "DAV:", "HTTP/1.1 200 OK");
+                    await xw.WriteEndElementAsync();
+                }
+                else
+                {
+                    await xw.WriteStartElementAsync("", "propstat", "DAV:");
+                    await xw.WriteStartElementAsync("", "prop", "DAV:");
+
+                    foreach(var (name, value) in curr.Found)
+                    {
+                        await xw.WriteStartElementAsync(xw.LookupPrefix(name.NamespaceName), name.LocalName, name.NamespaceName);
+                        await WritePropertyBody(xw, value);
+                        await xw.WriteEndElementAsync();
+                    }
+
+                    await xw.WriteEndElementAsync();
+                    await xw.WriteElementStringAsync("", "status", "DAV:", "HTTP/1.1 200 OK");
+                    await xw.WriteEndElementAsync(); // DAV:propstat
+
+                    if(curr.AccessDenied.Count() > 0)
+                    {
+                        await xw.WriteStartElementAsync("", "propstat", "DAV:");
+                        await xw.WriteStartElementAsync("", "prop", "DAV:");
+
+                        foreach(var name in curr.AccessDenied)
+                        {
+                            await xw.WriteStartElementAsync(xw.LookupPrefix(name.NamespaceName), name.LocalName, name.NamespaceName);
+                            await xw.WriteEndElementAsync();
+                        }
+
+                        await xw.WriteEndElementAsync();
+                        await xw.WriteElementStringAsync("", "status", "DAV:", "HTTP/1.1 403 Forbidden");
+                        await xw.WriteEndElementAsync(); // DAV:propstat
+                    }
+
+                    var notfound = new HashSet<XName>(wantedProps);
+                    notfound.ExceptWith(curr.AccessDenied);
+                    notfound.ExceptWith(curr.Found.Select(i => i.Key));
+
+                    if(notfound.Count > 0)
+                    {
+                        await xw.WriteStartElementAsync("", "propstat", "DAV:");
+                        await xw.WriteStartElementAsync("", "prop", "DAV:");
+
+                        foreach (var name in notfound)
+                        {
+                            await xw.WriteStartElementAsync(xw.LookupPrefix(name.NamespaceName), name.LocalName, name.NamespaceName);
+                            await xw.WriteEndElementAsync();
+                        }
+
+                        await xw.WriteEndElementAsync();
+                        await xw.WriteElementStringAsync("", "status", "DAV:", "HTTP/1.1 404 Not Found");
+                        await xw.WriteEndElementAsync(); // DAV:propstat
+                    }
+                }
 
                 await xw.WriteEndElementAsync(); // DAV: response
             }
 
             await xw.WriteEndDocumentAsync();
             await xw.FlushAsync();
+        }
+
+        async Task WritePropertyBody(XmlWriter xw, object? value)
+        {
+            if (value == null) return;
+            else if (value is XNode xnv) await xnv.WriteToAsync(xw, System.Threading.CancellationToken.None);
+            else if (value is IEnumerable<object?> ieov)
+                foreach (var i in ieov)
+                    await WritePropertyBody(xw, i);
+            else await xw.WriteStringAsync(value.ToString());
         }
 
         enum PfResult
@@ -271,7 +355,7 @@ namespace PD2BundleDavServer {
     {
         public static IApplicationBuilder UseDavMiddleware(this IApplicationBuilder builder, IReadableFilesystem backing)
         {
-            return builder.UseMiddleware<DavMiddleware>();
+            return builder.UseMiddleware<DavMiddleware>(backing);
         }
     }
 }
