@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <RootNamespace>PD2BundleDavServer</RootNamespace>
     <UserSecretsId>27cce094-b65b-4ec1-b466-cd5fd698a2fd</UserSecretsId>
     <LangVersion>preview</LangVersion>
