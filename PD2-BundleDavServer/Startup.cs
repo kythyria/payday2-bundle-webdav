@@ -52,9 +52,7 @@ namespace PD2BundleDavServer
             app.UseRouting();
 
             app.UseAuthorization();
-            app.Map("/davstub", iab => { iab.UseDavStubMiddleware(); });
-            app.Map("/extract1", iab => { iab.UseBundleDavMiddleware(Index); });
-            app.Map("/extract2", iab => { iab.UseDavMiddleware(extractProvider); });
+            app.Map("/extract", iab => { iab.UseDavMiddleware(extractProvider); });
             extractProvider.ToString();
 
             app.UseEndpoints(endpoints =>
