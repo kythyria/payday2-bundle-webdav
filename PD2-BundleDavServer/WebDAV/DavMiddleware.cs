@@ -125,7 +125,7 @@ namespace PD2BundleDavServer.WebDAV
             {
                 using var stream = await content.GetBodyStream();
                 ctx.Response.ContentLength = stream.Length;
-                ctx.Response.ContentType = content.ContentType?.ToString();
+                ctx.Response.ContentType = content.ContentType?.ToString() ?? "application/octet-stream";
 
                 await stream.CopyToAsync(ctx.Response.Body);
             }
