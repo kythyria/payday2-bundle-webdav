@@ -30,9 +30,17 @@ namespace PD2BundleDavServer
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
         {
-            var bundlepath = Configuration["bundles"];
+            string? bp;
+            Steam.SteamLocation.TryGetAppDirectory("218620", out bp, logger);
+
+            if(bp != null)
+            {
+                bp = System.IO.Path.Combine(bp, "assets");
+            }
+
+            var bundlepath = Configuration["bundles"] ?? bp;
             logger.LogInformation("Bundle directory: {0}", bundlepath);
-            var Index = PathIndex.FromDirectory(bundlepath, new System.Threading.CancellationToken(), new Progress<GenericProgress>());
+            var Index = PathIndex.FromDirectory(bundlepath ?? "", new System.Threading.CancellationToken(), new Progress<GenericProgress>());
             logger.LogInformation("Done reading bundles");
             var extractProvider = new Bundles.ExtractProvider(Index);
 

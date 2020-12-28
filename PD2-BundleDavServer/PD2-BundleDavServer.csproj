@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="DieselEngineFormats">
       <HintPath>..\lib\DieselEngineFormats.dll</HintPath>
     </Reference>
