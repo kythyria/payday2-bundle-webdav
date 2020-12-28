@@ -13,5 +13,15 @@ namespace PD2BundleDavServer
         {
             yield break;
         }
+
+        public static async Task<IList<T>> ToList<T>(this IAsyncEnumerable<T> self)
+        {
+            var res = new List<T>();
+            await foreach (var i in self)
+            {
+                res.Add(i);
+            }
+            return res;
+        }
     }
 }

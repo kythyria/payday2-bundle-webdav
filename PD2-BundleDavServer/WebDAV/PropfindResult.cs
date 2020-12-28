@@ -27,7 +27,7 @@ namespace PD2BundleDavServer.WebDAV
             {
                 if (foundProps.TryGetValue(Name.ResourceType, out var oValue) && oValue is IEnumerable<object> eValue)
                 {
-                    return eValue.Contains(Name.Collection);
+                    return eValue.Any(i => i is XElement xe && xe.Name == Name.Collection);
                 }
                 else
                 {
@@ -39,6 +39,18 @@ namespace PD2BundleDavServer.WebDAV
         public object? this[XName property]
         {
             get => foundProps[property];
+        }
+
+        public object? TryGetProperty(XName property)
+        {
+            if(foundProps.TryGetValue(property, out var val))
+            {
+                return val;
+            }
+            else
+            {
+                return null;
+            }
         }
 
         public void Add(XName what, object? value)

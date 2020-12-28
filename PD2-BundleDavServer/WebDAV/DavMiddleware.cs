@@ -87,8 +87,8 @@ namespace PD2BundleDavServer.WebDAV
 
             ctx.Response.Headers.Add("Last-Modified", new StringValues(content.LastModified.ToString("R")));
 
-            var dateSelector = reqHeaders.IfModifiedSince ?? DateTimeOffset.MinValue;
-            if (dateSelector <= content.LastModified)
+            var dateSelector = reqHeaders.IfModifiedSince;
+            if (dateSelector.HasValue && dateSelector <= content.LastModified)
             {
                 ctx.Response.StatusCode = StatusCodes.Status304NotModified;
                 return;
@@ -99,27 +99,32 @@ namespace PD2BundleDavServer.WebDAV
             if (content.UseCollectionFallback)
             {
                 ctx.Response.ContentType = "text/html; encoding=UTF-8";
-                await ctx.Response.WriteAsync($"<!DOCTYPE html><html><head><title>{ctx.Request.GetDisplayUrl()}</title><body style=\"font-family: monospace\">\n" +
+                var sb = new System.Text.StringBuilder();
+                sb.Append($"<!DOCTYPE html><html><head><title>{ctx.Request.GetDisplayUrl()}</title><body style=\"font-family: monospace\">\n" +
                     $"<table><thead><tr><th>Name</th><th>Size</th><th>Last Modified</th></tr></thead><tbody>\n");
-                var children = await backing.EnumerateProperties(ctx.Request.Path, OperationDepth.IncludeChildren, false, ListingProps);
-                if(children == null)
+                var childrenasync = await backing.EnumerateProperties(ctx.Request.Path, OperationDepth.IncludeChildren, false, ListingProps);
+                if(childrenasync == null)
                 {
-                    children = AsyncEnumerable.Empty<PropfindResult>();
+                    childrenasync = AsyncEnumerable.Empty<PropfindResult>();
                 }
-                await foreach (var child in children)
+
+                var children = await childrenasync.ToList();
+
+                foreach (var child in children.OrderBy(i => i.IsCollection ? 0 : 1).ThenBy(i => i.Path))
                 {
                     var childpath = ctx.Request.PathBase + new PathString(child.Path);
                     var ub = new UriBuilder(ctx.Request.GetEncodedUrl());
                     ub.Path = childpath;
 
-                    var date = child[Name.GetLastModified];
-                    var size = child[Name.GetContentLength];
+                    var date = child.IsCollection ? "" : child[Name.GetLastModified];
+                    var size = child.TryGetProperty(Name.GetContentLength) ?? (child.IsCollection ? "&lt;dir&gt;" : "?");
                     var name = child[Name.DisplayName] + (child.IsCollection ? "/" : "");
 
                     var row = $"<tr><td><a href=\"{childpath}\">{name}</a></td><td>{size}</td><td>{date}</td></tr>\n";
-                    await ctx.Response.WriteAsync(row);
+                    sb.Append(row);
                 }
-                await ctx.Response.WriteAsync("</tbody></table></body></html>");
+                sb.Append("</tbody></table></body></html>");
+                await ctx.Response.WriteAsync(sb.ToString());
             }
             else
             {
