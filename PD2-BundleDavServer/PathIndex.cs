@@ -28,10 +28,11 @@ namespace PD2BundleDavServer
             
             if(item is CollectionIndexItem ci)
             {
-                foreach(var (_, child) in ci.Children)
-                {
-                    yield return child;
-                }
+                return ci.Children;
+            }
+            else
+            {
+                return Enumerable.Empty<PathIndexItem>();
             }
         }
 
@@ -41,7 +42,7 @@ namespace PD2BundleDavServer
         {
             var tings = new Queue<IEnumerable<PathIndexItem>>();
             var item = this[path] as CollectionIndexItem;
-            if (item != null) { tings.Enqueue(item.Children.Values); }
+            if (item != null) { tings.Enqueue(item.Children); }
 
             while(tings.Count > 0)
             {
@@ -51,7 +52,7 @@ namespace PD2BundleDavServer
                     yield return i;
                     if(i is CollectionIndexItem ci)
                     {
-                        tings.Enqueue(ci.Children.Values);
+                        tings.Enqueue(ci.Children);
                     }
                 }
             }
@@ -128,7 +129,7 @@ namespace PD2BundleDavServer
 
             foreach(var (fileid, (dbe, path, pfes)) in fileentries)
             {
-                var fii = new FileIndexItem(this, path, bundleDates[pfes[0].PackageName], dbe, pfes.ToArray());
+                var fii = new FileIndexItem(this, path, bundleDates[pfes[0].PackageName], pfes.ToArray());
                 itemsByPath[path] = fii;
 
                 PathIndexItem currentItem = fii;
@@ -139,14 +140,14 @@ namespace PD2BundleDavServer
                     if (itemsByPath.TryGetValue(currentDirectoryPath, out var pidir))
                     {
                         var cidir = (CollectionIndexItem)pidir;
-                        cidir.Children.Add(currentItem.PathSegment, currentItem);
+                        cidir.Children.Add(currentItem);
                         break;
                     }
                     else
                     {
                         var cidir = new CollectionIndexItem(this, currentDirectoryPath, DateTime.MinValue);
                         itemsByPath[currentDirectoryPath] = cidir;
-                        cidir.Children.Add(currentItem.PathSegment, currentItem);
+                        cidir.Children.Add(currentItem);
                         currentItem = cidir;
                         continue;
                     }
@@ -176,15 +177,16 @@ namespace PD2BundleDavServer
             index = pi;
             Path = path;
             LastModified = lastmodified;
-            var lastslash = path.LastIndexOf('/');
-            if (lastslash == -1) { PathSegment = path; }
-            else
-            {
-                PathSegment = path.Substring(lastslash+1);
-            }
         }
 
-        public string PathSegment { get; private set; }
+        public string PathSegment
+        {
+            get
+            {
+                var lastslash = Path.LastIndexOf('/');
+                return lastslash == -1 ? Path : Path.Substring(lastslash + 1);
+            }
+        }
         public string Path { get; private set; }
         public DateTime LastModified { get; private set; }
         public virtual long ContentLength { get; }
@@ -196,15 +198,15 @@ namespace PD2BundleDavServer
     {
         public CollectionIndexItem(PathIndex pi, string path, DateTime lastmodified) : base(pi, path, lastmodified)
         {
-            Children = new Dictionary<string, PathIndexItem>();
+            Children = new List<PathIndexItem>();
         }
         public override long ContentLength => 0;
-        public IDictionary<string, PathIndexItem> Children { get; private set; }
+        public IList<PathIndexItem> Children { get; private set; }
 
         public override void PostBuild()
         {
             DateTime md = DateTime.MinValue;
-            foreach(var child in Children.Values)
+            foreach(var child in Children)
             {
                 child.PostBuild();
                 md = md > child.LastModified ? md : child.LastModified;
@@ -214,13 +216,11 @@ namespace PD2BundleDavServer
 
     public class FileIndexItem : PathIndexItem
     {
-        public FileIndexItem(PathIndex pi, string path, DateTime lastmodified, DatabaseEntry dbe, PackageFileEntry[] pfes) : base(pi, path, lastmodified)
+        public FileIndexItem(PathIndex pi, string path, DateTime lastmodified, PackageFileEntry[] pfes) : base(pi, path, lastmodified)
         {
-            DatabaseEntry = dbe;
             PackageFileEntries = pfes;
         }
 
-        public DatabaseEntry DatabaseEntry { get; private set; }
         public PackageFileEntry[] PackageFileEntries { get; private set; }
 
         public override long ContentLength => PackageFileEntries[0].Length;

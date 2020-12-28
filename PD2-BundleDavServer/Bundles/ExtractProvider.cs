@@ -85,29 +85,24 @@ namespace PD2BundleDavServer.Bundles
             foreach(var item in itemsToList)
             {
                 var isCollection = item is CollectionIndexItem;
-                var props = new Dictionary<XName, (ResultCode, object?)>();
                 var statResult = new PropfindResult(item.Path, isCollection);
 
                 foreach(var propname in additionalProps)
                 {
                     if(propname == Name.PropName)
                     {
-                        props.Add(propname, (ResultCode.Found, isCollection ? SupportedCollectionProps : SupportedFileProps));
                         statResult.Add(propname, isCollection ? SupportedCollectionProps : SupportedFileProps);
                     }
                     else if(propname == Name.InPackages)
                     {
-                        props.Add(propname, (ResultCode.Found, GetPackageFragment(item)));
                         statResult.Add(propname, GetPackageFragment(item));
                     }
                     else if(propname == Name.GetContentType && !isCollection)
                     {
-                        props.Add(propname, (ResultCode.Found, "application/octet-stream"));
                         statResult.Add(propname, "application/octet-stream");
                     }
                     else if(propname == Name.DisplayName)
                     {
-                        props.Add(propname, (ResultCode.Found, item.PathSegment));
                         statResult.Add(propname, item.PathSegment);
                     }
                     else if(propname == Name.GetLastModified)
