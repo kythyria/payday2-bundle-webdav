@@ -89,8 +89,9 @@ namespace PD2BundleDavServer.Steam
             {
                 acf = new VdfReader().LoadString(acfpath, File.ReadAllText(acfpath));
             }
-            catch(FileNotFoundException _)
+            catch(FileNotFoundException e)
             {
+                _ = e;
                 result = null;
                 return false;
             }
