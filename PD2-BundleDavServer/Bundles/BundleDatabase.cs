@@ -221,10 +221,39 @@ namespace PD2BundleDavServer.Bundles
             }
         }
 
-        bool TryGetItem((Idstring path, Idstring? language, Idstring? extension) what, [NotNullWhen(true)] out BdItem? item) => throw new NotImplementedException();
-        BdPackage? TryGetPackage(Idstring what) => throw new NotImplementedException();
-        IO.Stream GetStream(BdFile file) => throw new NotImplementedException();
-        IEnumerable<BdItem> GetDirectChildren(BdItem item) => throw new NotImplementedException();
-        IEnumerable<BdItem> GetAllChildren(BdItem item) => throw new NotImplementedException();
+        bool TryGetItem((Idstring path, Idstring? language, Idstring? extension) what, [NotNullWhen(true)] out BdItem? item)
+            => items.TryGetValue(what, out item);
+
+        bool TryGetPackage(Idstring what, [NotNullWhen(true)] out BdPackage? pack)
+            => packages.TryGetValue(what, out pack);
+
+        IO.Stream GetStream(BdFile file)
+        {
+            var pr = file.Packages[0];
+
+            var packagestream = new IO.FileStream(pr.Package.Filename, IO.FileMode.Open, IO.FileAccess.Read, IO.FileShare.Read);
+            var filestream = new SliceStream(packagestream, pr.Offset, pr.Length);
+            return filestream;
+        }
+
+        IEnumerable<BdItem> GetDirectChildren(BdItem item) => item is BdCollection bdc ? bdc.Children : Enumerable.Empty<BdItem>();
+        IEnumerable<BdItem> GetAllChildren(BdItem item)
+        {
+            var things = new Queue<IEnumerable<BdItem>>();
+            if(item is BdCollection bdc) { things.Enqueue(bdc.Children); }
+
+            while(things.Count > 0)
+            {
+                var curr = things.Dequeue();
+                foreach(var i in curr)
+                {
+                    yield return i;
+                    if(i is BdCollection ci)
+                    {
+                        things.Enqueue(ci.Children);
+                    }
+                }
+            }
+        }
     }
 }
