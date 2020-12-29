@@ -210,6 +210,7 @@ namespace PD2BundleDavServer
             {
                 child.PostBuild();
                 md = md > child.LastModified ? md : child.LastModified;
+                ((List<PathIndexItem>)Children).TrimExcess();
             }
         }
     }
