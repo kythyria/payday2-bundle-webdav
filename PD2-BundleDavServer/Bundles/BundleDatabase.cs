@@ -135,7 +135,10 @@ namespace PD2BundleDavServer.Bundles
 
             foreach(var entry in pdbentries)
             {
-                var lang = pdb.Languages[entry.Language].Name;
+                if (entry.Path.ToString().Contains('.'))
+                    throw new Exception($"Ambiguous item path contains dot: {entry.Path}");
+
+                var lang = pdb.LanguageFromID(entry.Language)?.Name;
                 var item = new BdFile(entry.Path, lang, entry.Extension);
                 filesById.Add(entry.ID, item);
                 items.Add((entry.Path, lang, entry.Extension), item);
@@ -221,13 +224,22 @@ namespace PD2BundleDavServer.Bundles
             }
         }
 
-        bool TryGetItem((Idstring path, Idstring? language, Idstring? extension) what, [NotNullWhen(true)] out BdItem? item)
+        public bool TryGetItem((string path, string? language, string? extension) what, [NotNullWhen(true)] out BdItem? item)
+        {
+            var idpath = GetHashProperly(what.path);
+            var idlang = what.language != null ? GetHashProperly(what.language) : null;
+            var idextn = what.extension != null ? GetHashProperly(what.extension) : null;
+
+            return TryGetItem((idpath, idlang, idextn), out item);
+        }
+
+        public bool TryGetItem((Idstring path, Idstring? language, Idstring? extension) what, [NotNullWhen(true)] out BdItem? item)
             => items.TryGetValue(what, out item);
 
-        bool TryGetPackage(Idstring what, [NotNullWhen(true)] out BdPackage? pack)
+        public bool TryGetPackage(Idstring what, [NotNullWhen(true)] out BdPackage? pack)
             => packages.TryGetValue(what, out pack);
 
-        IO.Stream GetStream(BdFile file)
+        public IO.Stream GetStream(BdFile file)
         {
             var pr = file.Packages[0];
 
@@ -236,8 +248,8 @@ namespace PD2BundleDavServer.Bundles
             return filestream;
         }
 
-        IEnumerable<BdItem> GetDirectChildren(BdItem item) => item is BdCollection bdc ? bdc.Children : Enumerable.Empty<BdItem>();
-        IEnumerable<BdItem> GetAllChildren(BdItem item)
+        public IEnumerable<BdItem> GetDirectChildren(BdItem item) => item is BdCollection bdc ? bdc.Children : Enumerable.Empty<BdItem>();
+        public IEnumerable<BdItem> GetAllChildren(BdItem item)
         {
             var things = new Queue<IEnumerable<BdItem>>();
             if(item is BdCollection bdc) { things.Enqueue(bdc.Children); }

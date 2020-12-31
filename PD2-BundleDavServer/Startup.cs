@@ -30,9 +30,10 @@ namespace PD2BundleDavServer
                 bp = System.IO.Path.Combine(bp, "assets");
             }
 
-            var bundlepath = Configuration["bundles"] ?? bp;
+            var bundlepath = Configuration["bundles"] ?? bp ?? "";
             logger.LogInformation("Bundle directory: {0}", bundlepath);
-            var Index = PathIndex.FromDirectory(bundlepath ?? "", new System.Threading.CancellationToken(), new Progress<GenericProgress>());
+            //var Index = PathIndex.FromDirectory(bundlepath ?? "", new System.Threading.CancellationToken(), new Progress<GenericProgress>());
+            var Index = new Bundles.BundleDatabase(bundlepath);
             logger.LogInformation("Done reading bundles");
             var extractProvider = new Bundles.ExtractProvider(Index);
 

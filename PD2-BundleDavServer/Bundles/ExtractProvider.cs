@@ -36,9 +36,9 @@ namespace PD2BundleDavServer.Bundles
             Name.ResourceType
         };
 
-        private PathIndex Index { get; }
+        private BundleDatabase Index { get; }
 
-        public ExtractProvider(PathIndex index)
+        public ExtractProvider(BundleDatabase index)
         {
             Index = index;
         }
@@ -47,19 +47,37 @@ namespace PD2BundleDavServer.Bundles
 
         public Task<IAsyncEnumerable<PropfindResult>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps)
         {
-            if (path == "") { path = "/"; }
-            else if (path != "/") { path = path.TrimEnd('/'); }
+            var query = QueryFromPath(path);
 
-            if (!Index.TryGetItem(path, out var rootItem))
+            if (!Index.TryGetItem(query, out var rootItem))
             {
                 return Task.FromResult<IAsyncEnumerable<PropfindResult>?>(null);
             }
-            else return Task.FromResult<IAsyncEnumerable<PropfindResult>?>(EnumerateProperties(path, rootItem, depth, getAllProps, additionalProps));
+            else return Task.FromResult<IAsyncEnumerable<PropfindResult>?>(EnumerateProperties(rootItem, depth, getAllProps, additionalProps));
         }
 
+        static System.Text.RegularExpressions.Regex pathSplitter =
+            new(@"^/?(.*?)(?:\.([^.]+))?(?:\.([^.]+))?/?$");
+        private (string, string?, string?) QueryFromPath(string path)
+        {
+            var m = pathSplitter.Match(path);
+            string respath = m.Groups[1].Value;
+            if (m.Groups[2].Success && m.Groups[3].Success)
+                return (respath, m.Groups[2].Value, m.Groups[3].Value);
+            else if (m.Groups[2].Success && !m.Groups[3].Success)
+                return (respath, null, m.Groups[2].Value);
+            else
+                return (respath, null, null);
+        }
+
+        private string PathFromItem(BdItem item)
+            => "/" + item.Path.ToString()
+                + (item.Language != null ? "." + item.Language.ToString() : "")
+                + (item.Extension != null ? "." + item.Extension.ToString() : "");
+
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        async IAsyncEnumerable<PropfindResult> EnumerateProperties(string originalPath, PathIndexItem rootItem, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps) {
-            var itemsToList = Enumerable.Empty<PathIndexItem>();
+        async IAsyncEnumerable<PropfindResult> EnumerateProperties(BdItem rootItem, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps) {
+            var itemsToList = Enumerable.Empty<BdItem>();
             if(depth.HasFlag(OperationDepth.IncludeSelf))
             {
                 itemsToList = itemsToList.Append(rootItem);
@@ -67,11 +85,11 @@ namespace PD2BundleDavServer.Bundles
             
             if(depth.HasFlag(OperationDepth.IncludeChildren) || !depth.HasFlag(OperationDepth.IncludeDescendants))
             {
-                itemsToList = itemsToList.Concat(Index.DirectChildrenListing(rootItem.Path));
+                itemsToList = itemsToList.Concat(Index.GetDirectChildren(rootItem));
             }
             else if(depth.HasFlag(OperationDepth.IncludeDescendants))
             {
-                itemsToList = itemsToList.Concat(Index.AllChildrenListing(rootItem.Path));
+                itemsToList = itemsToList.Concat(Index.GetAllChildren(rootItem));
             }
 
             if(getAllProps)
@@ -84,8 +102,8 @@ namespace PD2BundleDavServer.Bundles
 
             foreach(var item in itemsToList)
             {
-                var isCollection = item is CollectionIndexItem;
-                var statResult = new PropfindResult(item.Path, isCollection);
+                var isCollection = item is BdCollection;
+                var statResult = new PropfindResult(PathFromItem(item), isCollection);
 
                 foreach(var propname in additionalProps)
                 {
@@ -101,17 +119,13 @@ namespace PD2BundleDavServer.Bundles
                     {
                         statResult.Add(propname, "application/octet-stream");
                     }
-                    else if(propname == Name.DisplayName)
-                    {
-                        statResult.Add(propname, item.PathSegment);
-                    }
                     else if(propname == Name.GetLastModified)
                     {
                         statResult.Add(propname, item.LastModified.ToString("R"));
                     }
-                    else if(propname == Name.GetContentLength && !isCollection)
+                    else if(propname == Name.GetContentLength && item is BdFile clfile)
                     {
-                        statResult.Add(propname, item.ContentLength);
+                        statResult.Add(propname, clfile.ContentLength);
                     }
                     else if(propname == Name.ResourceType && isCollection)
                     {
@@ -123,11 +137,11 @@ namespace PD2BundleDavServer.Bundles
         }
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
-        private IEnumerable<XElement> GetPackageFragment(PathIndexItem item)
+        private IEnumerable<XElement> GetPackageFragment(BdItem item)
         {
-            if(item is FileIndexItem fii)
+            if(item is BdFile fii)
             {
-                return fii.PackageFileEntries.Select(i => new XElement(Name.Package, i.PackageName));
+                return fii.Packages.Select(i => new XElement(Name.Package, i.Package.PackageName.ToString()));
             }
             else
             {
@@ -137,21 +151,20 @@ namespace PD2BundleDavServer.Bundles
 
         public Task<IContent> GetContent(string path, IList<MediaTypeHeaderValue>? acceptContentType)
         {
-            if (path == "") { path = "/"; }
-            else if (path != "/") { path = path.TrimEnd('/'); }
+            var q = QueryFromPath(path);
 
-            if (!Index.TryGetItem(path, out var rootItem))
+            if (!Index.TryGetItem(q, out var rootItem))
             {
                 return Task.FromResult(GenericContent.NotFound as IContent);
             }
 
-            if(rootItem is CollectionIndexItem)
+            if(rootItem is BdCollection)
             {
                 return Task.FromResult<IContent>(new GenericContent(ResultCode.Found, null, rootItem.LastModified, true));
             }
-            else if(rootItem is FileIndexItem item)
+            else if(rootItem is BdFile item)
             {
-                return Task.FromResult<IContent>(new ExtractFileContent(item));
+                return Task.FromResult<IContent>(new ExtractFileContent(Index, item));
             }
 
             throw new NotImplementedException();
@@ -165,11 +178,13 @@ namespace PD2BundleDavServer.Bundles
         public DateTimeOffset LastModified => item.LastModified;
         public bool UseCollectionFallback => false;
 
-        public Task<System.IO.Stream> GetBodyStream() => item.GetContentsStream();
+        public Task<System.IO.Stream> GetBodyStream() => Task.FromResult(db.GetStream(item));
 
-        private FileIndexItem item;
-        public ExtractFileContent(FileIndexItem fii)
+        private readonly BdFile item;
+        private readonly BundleDatabase db;
+        public ExtractFileContent(BundleDatabase bd, BdFile fii)
         {
+            db = bd;
             item = fii;
         }
     }
