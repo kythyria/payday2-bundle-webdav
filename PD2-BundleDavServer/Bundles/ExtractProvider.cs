@@ -83,7 +83,7 @@ namespace PD2BundleDavServer.Bundles
                 itemsToList = itemsToList.Append(rootItem);
             }
             
-            if(depth.HasFlag(OperationDepth.IncludeChildren) || !depth.HasFlag(OperationDepth.IncludeDescendants))
+            if(depth.HasFlag(OperationDepth.IncludeChildren) && !depth.HasFlag(OperationDepth.IncludeDescendants))
             {
                 itemsToList = itemsToList.Concat(Index.GetDirectChildren(rootItem));
             }

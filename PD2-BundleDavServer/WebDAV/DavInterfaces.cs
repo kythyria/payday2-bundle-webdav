@@ -29,7 +29,7 @@ namespace PD2BundleDavServer.WebDAV
         /// <summary>
         /// The named item.
         /// </summary>
-        Zero = 1,
+        Zero = IncludeSelf,
         /// <summary>
         /// The named item and its immediate children.
         /// </summary>
