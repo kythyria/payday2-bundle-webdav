@@ -36,14 +36,17 @@ namespace PD2BundleDavServer
             var Index = new Bundles.BundleDatabase(bundlepath);
             logger.LogInformation("Done reading bundles");
             var extractProvider = new Bundles.ExtractProvider(Index);
+            var transformedProvider = new WebDAV.BundleTransformerProvider(extractProvider);
+            WebDAV.IReadableFilesystem provider;
+            provider = transformedProvider;
+            //provider = extractProvider;
 
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
 
-            app.Map("/extract", iab => { iab.UseDavMiddleware(extractProvider); });
-            extractProvider.ToString();
+            app.Map("/extract", iab => { iab.UseDavMiddleware(provider); });
 
             GC.Collect(2, GCCollectionMode.Forced, true, true);
         }
