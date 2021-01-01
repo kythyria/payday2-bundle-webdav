@@ -20,7 +20,7 @@ namespace PD2BundleDavServer.WebDAV
             }
         }
 
-        public string Path { get; }
+        public string Path { get; set; }
         public bool IsCollection
         {
             get
