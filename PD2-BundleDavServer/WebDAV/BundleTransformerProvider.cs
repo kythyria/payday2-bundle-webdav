@@ -14,13 +14,13 @@ namespace PD2BundleDavServer.WebDAV
     {
         private readonly IReadableFilesystem backend;
 
-        record Rule(string OriginalExtension, string NewExtension, bool ReplaceOriginal, Func<Stream, Task<Stream>>? Transformer);
+        record Rule(string OriginalExtension, string NewExtension, bool ReplaceOriginal, Func<Stream, Task<Stream>>? Transformer, string? NewMime);
 
         private static Rule[] rules = new Rule[]
         {
-            new Rule(".texture", ".dds", true, null),
-            new Rule(".movie", ".bik", true, null),
-            new Rule(".strings", ".strings.json", false, Transformers.StringsToJson)
+            new Rule(".texture", ".dds", true, null, null),
+            new Rule(".movie", ".bik", true, null, null),
+            new Rule(".strings", ".strings.json", true, Transformers.StringsToJson, "text/json")
         };
 
         public BundleTransformerProvider(IReadableFilesystem backingStore)
@@ -32,7 +32,7 @@ namespace PD2BundleDavServer.WebDAV
 
         public async Task<IAsyncEnumerable<PropfindResult>?> EnumerateProperties(string path, OperationDepth depth, bool getAllProps, IEnumerable<XName> additionalProps)
         {
-            foreach (var (orig, newext, _, _) in rules)
+            foreach (var (orig, newext, _, _, _) in rules)
             {
                 if (path.EndsWith(newext, StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -51,18 +51,26 @@ namespace PD2BundleDavServer.WebDAV
         {
             await foreach(var item in backenditems)
             {
-                foreach(var (orig, newext, replace, _) in rules)
+                foreach(var (orig, newext, replace, _, newMime) in rules)
                 {
                     if (item.Path.EndsWith(orig, StringComparison.InvariantCultureIgnoreCase))
                     {
                         if (replace)
                         {
                             item.Path = item.Path.Substring(0, item.Path.Length - orig.Length) + newext;
+                            if (newMime != null)
+                            {
+                                item[Name.GetContentType] = newMime;
+                            }
                         }
                         else
                         {
                             var ni = new PropfindResult(item);
                             ni.Path = item.Path.Substring(0, item.Path.Length - orig.Length) + newext;
+                            if(newMime != null)
+                            {
+                                ni[Name.GetContentType] = newMime;
+                            }
                             yield return ni;
                         }
                         break;

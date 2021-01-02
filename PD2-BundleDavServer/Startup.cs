@@ -46,7 +46,8 @@ namespace PD2BundleDavServer
                 app.UseDeveloperExceptionPage();
             }
 
-            app.Map("/extract", iab => { iab.UseDavMiddleware(provider); });
+            app.Map("/diesel-files", iab => { iab.UseDavMiddleware(transformedProvider); });
+            app.Map("/diesel-raw", iab => { iab.UseDavMiddleware(extractProvider); });
 
             GC.Collect(2, GCCollectionMode.Forced, true, true);
         }

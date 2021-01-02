@@ -49,6 +49,7 @@ namespace PD2BundleDavServer.WebDAV
         public object? this[XName property]
         {
             get => foundProps[property];
+            set { accessDenied.Remove(property); foundProps[property] = value; }
         }
 
         public object? TryGetProperty(XName property)
