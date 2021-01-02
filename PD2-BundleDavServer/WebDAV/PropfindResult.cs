@@ -20,6 +20,16 @@ namespace PD2BundleDavServer.WebDAV
             }
         }
 
+        public PropfindResult(PropfindResult src)
+        {
+            this.accessDenied.UnionWith(src.accessDenied);
+            foreach(var (k,v) in src.foundProps)
+            {
+                this.foundProps.Add(k, v);
+            }
+            this.Path = src.Path;
+        }
+
         public string Path { get; set; }
         public bool IsCollection
         {

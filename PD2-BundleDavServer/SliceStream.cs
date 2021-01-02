@@ -49,6 +49,7 @@ namespace PD2BundleDavServer
                 {
                     throw new ArgumentOutOfRangeException("value", "Position must be inside the slice.");
                 }
+                Backing.Position = newpos;
             }
         }
 
